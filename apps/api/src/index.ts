@@ -228,6 +228,10 @@ function decodePubSubData(value: string) {
   return JSON.parse(Buffer.from(padded, "base64").toString("utf8")) as { emailAddress?: string; historyId?: string };
 }
 
+function gmailPushConfigured() {
+  return Boolean(config.GMAIL_PUSH_ENABLED && config.GMAIL_PUBSUB_TOPIC && config.GMAIL_PUBSUB_VERIFICATION_TOKEN);
+}
+
 app.get("/health", (_req, res) => res.json({ ok: true, service: "mailsync" }));
 app.get("/health/ready", async (_req, res) => {
   await prisma.$queryRaw`SELECT 1`;
@@ -462,10 +466,10 @@ app.post("/api/auth/verify-otp", requireUser, async (req, res) => {
 
 app.post("/api/webhooks/gmail", async (req, res, next) => {
   try {
-    if (!config.GMAIL_PUSH_ENABLED) return res.status(202).json({ ok: true, push_enabled: false });
-    if (!config.GMAIL_PUBSUB_VERIFICATION_TOKEN) return res.status(503).json({ error: "Gmail Pub/Sub token is not configured" });
+    if (!gmailPushConfigured()) return res.status(202).json({ ok: true, push_enabled: false });
+    const expectedToken = config.GMAIL_PUBSUB_VERIFICATION_TOKEN as string;
     const token = String(req.query.token ?? req.header("x-mailsync-webhook-token") ?? "");
-    if (!timingSafeEqualString(sha256(token), sha256(config.GMAIL_PUBSUB_VERIFICATION_TOKEN))) return res.status(401).json({ error: "Invalid webhook token" });
+    if (!timingSafeEqualString(sha256(token), sha256(expectedToken))) return res.status(401).json({ error: "Invalid webhook token" });
     const dataValue = req.body?.message?.data;
     if (typeof dataValue !== "string") return res.status(400).json({ error: "Missing Pub/Sub message data" });
     const payload = decodePubSubData(dataValue);
@@ -613,6 +617,7 @@ app.get("/api/accounts", requireUser, async (_req, res) => {
       watchExpiresAt: a.watchExpiresAt,
       syncRequestedAt: a.syncRequestedAt,
       pushEnabled: config.GMAIL_PUSH_ENABLED,
+      pushConfigured: gmailPushConfigured(),
       preferences: {
         dmEnabled: a.preferences?.dmEnabled ?? true,
         dmMinLevel: a.preferences?.dmMinLevel ?? EmailLevel.CRITICAL

@@ -107,6 +107,7 @@ type Account = {
   watchExpiresAt?: string | null;
   syncRequestedAt?: string | null;
   pushEnabled?: boolean;
+  pushConfigured?: boolean;
   preferences: { dmEnabled: boolean; dmMinLevel: SeverityLevel };
   stats: { emails_processed: number };
 };
@@ -1199,6 +1200,7 @@ function DiscordSeverityPanel({ accounts, reload }: { accounts: Account[]; reloa
             <div>
               <b>{account.email}</b>
               <span>{account.preferences.dmEnabled ? severityCopy[account.preferences.dmMinLevel] : "Discord DMs disabled"}</span>
+              <span>{account.pushConfigured ? "Instant Gmail push active" : "Fallback polling active until Pub/Sub is configured"}</span>
             </div>
             <label className="toggle-row compact-toggle">
               <input type="checkbox" checked={account.preferences.dmEnabled} onChange={(event) => save(account, { dmEnabled: event.target.checked })} disabled={busyId === account.id} />

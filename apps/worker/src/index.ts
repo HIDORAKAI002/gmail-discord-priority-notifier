@@ -91,6 +91,10 @@ function meetsMinimumLevel(level: string, minimum: string) {
   return levelRank(level) >= levelRank(minimum);
 }
 
+function gmailPushConfigured() {
+  return Boolean(config.GMAIL_PUSH_ENABLED && config.GMAIL_PUBSUB_TOPIC && config.GMAIL_PUBSUB_VERIFICATION_TOKEN);
+}
+
 function extractBody(payload: GmailMessage["payload"]): string {
   if (!payload) return "";
   const direct = payload.body?.data ? decodeBase64Url(payload.body.data) : "";
@@ -297,7 +301,7 @@ async function ensureGmailWatch(account: {
   tokenExpiresAt: Date | null;
   watchExpiresAt: Date | null;
 }) {
-  if (!config.GMAIL_PUSH_ENABLED || !config.GMAIL_PUBSUB_TOPIC) return;
+  if (!gmailPushConfigured()) return;
   const renewBefore = new Date(Date.now() + config.GMAIL_WATCH_RENEWAL_HOURS * 60 * 60 * 1000);
   if (account.watchExpiresAt && account.watchExpiresAt > renewBefore) return;
   const token = await accessTokenFor(account);
