@@ -1,0 +1,237 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String         @id @default(cuid())
+  discordId            String         @unique @db.VarChar(32)
+  discordUsername      String         @db.VarChar(120)
+  discordAvatar        String?        @db.VarChar(512)
+  discordEmail         String?        @db.VarChar(255)
+  whatsappNumber       String?        @db.VarChar(32)
+  whatsappEnabled      Boolean        @default(false)
+  whatsappAgentEnabled Boolean        @default(false)
+  openWaBaseUrl        String?        @db.VarChar(512)
+  openWaApiKey         String?        @db.Text
+  openWaSessionId      String?        @db.VarChar(120)
+  timezone             String         @default("UTC") @db.VarChar(80)
+  isPremium            Boolean        @default(false)
+  isActive             Boolean        @default(true)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  accounts             EmailAccount[]
+  sessions             Session[]
+  otpLogs              OtpLog[]
+  auditLogs            AuditLog[]
+}
+
+model EmailAccount {
+  id                  String                  @id @default(cuid())
+  userId              String
+  emailAddress        String                  @db.VarChar(255)
+  googleUserId        String?                 @db.VarChar(120)
+  gmailRefreshToken   String                  @db.Text
+  gmailAccessToken    String?                 @db.Text
+  tokenExpiresAt      DateTime?
+  historyId           String?                 @db.VarChar(120)
+  lastPushHistoryId   String?                 @db.VarChar(120)
+  watchExpiresAt      DateTime?
+  syncRequestedAt     DateTime?
+  syncRequestedReason String?                 @db.VarChar(120)
+  status              AccountStatus           @default(ACTIVE)
+  connectedAt         DateTime                @default(now())
+  lastSyncAt          DateTime?
+  lastError           String?                 @db.Text
+  errorCount          Int                     @default(0)
+  user                User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferences         NotificationPreference?
+  thresholds          AiThreshold?
+  logs                EmailLog[]
+  rules               SenderRule[]
+
+  @@unique([userId, emailAddress])
+  @@index([userId])
+  @@index([status])
+}
+
+model NotificationPreference {
+  id                      String       @id @default(cuid())
+  accountId               String       @unique
+  dmEnabled               Boolean      @default(true)
+  dmMinLevel              EmailLevel   @default(CRITICAL)
+  channelEnabled          Boolean      @default(false)
+  guildId                 String?      @db.VarChar(32)
+  channelId               String?      @db.VarChar(32)
+  channelMinLevel         EmailLevel   @default(CRITICAL)
+  mentionUser             Boolean      @default(true)
+  createThreads           Boolean      @default(false)
+  quietHoursEnabled       Boolean      @default(false)
+  quietHoursStart         String?      @db.VarChar(5)
+  quietHoursEnd           String?      @db.VarChar(5)
+  quietHoursOverrideLevel EmailLevel   @default(CRITICAL)
+  digestEnabled           Boolean      @default(false)
+  digestTime              String       @default("09:00") @db.VarChar(5)
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  account                 EmailAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+model AiThreshold {
+  id                 String       @id @default(cuid())
+  accountId          String       @unique
+  criticalThreshold  Int          @default(80)
+  importantThreshold Int          @default(50)
+  normalThreshold    Int          @default(20)
+  useEnsemble        Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  account            EmailAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+model SenderRule {
+  id          String       @id @default(cuid())
+  accountId   String
+  pattern     String       @db.VarChar(255)
+  action      RuleAction
+  description String?      @db.VarChar(255)
+  createdAt   DateTime     @default(now())
+  account     EmailAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+model EmailLog {
+  id                  String               @id @default(cuid())
+  accountId           String
+  gmailMessageId      String               @db.VarChar(120)
+  gmailThreadId       String?              @db.VarChar(120)
+  senderHash          String               @db.VarChar(64)
+  senderAddress       String?              @db.VarChar(255)
+  recipientAddress    String?              @db.VarChar(255)
+  senderDomain        String?              @db.VarChar(180)
+  subjectHash         String?              @db.VarChar(64)
+  subjectPreview      String?              @db.VarChar(140)
+  snippetPreview      String?              @db.VarChar(240)
+  bodyPreview         String?              @db.Text
+  geminiScore         Int?
+  groqScore           Int?
+  ruleScore           Int?
+  ensembleScore       Int
+  confidence          ScoreConfidence
+  category            EmailLevel
+  disposition         EmailDisposition
+  requiresResponse    Boolean              @default(false)
+  wasNotified         Boolean              @default(false)
+  notificationSentAt  DateTime?
+  notificationChannel NotificationChannel?
+  whatsappNotifiedAt  DateTime?
+  whatsappError       String?              @db.Text
+  userFeedback        FeedbackType?
+  feedbackNotes       String?              @db.Text
+  hasAttachments      Boolean              @default(false)
+  attachmentTypesJson Json?
+  processedAt         DateTime             @default(now())
+  account             EmailAccount         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, gmailMessageId])
+  @@index([accountId, processedAt])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique @db.VarChar(64)
+  expiresAt DateTime
+  ipAddress String?  @db.VarChar(64)
+  userAgent String?  @db.Text
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OtpLog {
+  id             String     @id @default(cuid())
+  userId         String
+  emailAccountId String?
+  emailAddress   String?    @db.VarChar(255)
+  otpHash        String     @db.VarChar(255)
+  purpose        OtpPurpose
+  expiresAt      DateTime
+  verifiedAt     DateTime?
+  verified       Boolean    @default(false)
+  attemptCount   Int        @default(0)
+  payloadJson    Json?
+  createdAt      DateTime   @default(now())
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  userId       String
+  action       String   @db.VarChar(120)
+  resourceType String?  @db.VarChar(80)
+  resourceId   String?  @db.VarChar(80)
+  detailsJson  Json?
+  ipAddress    String?  @db.VarChar(64)
+  userAgent    String?  @db.Text
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum AccountStatus {
+  ACTIVE
+  PAUSED
+  ERROR
+  REVOKED
+}
+
+enum EmailLevel {
+  CRITICAL
+  IMPORTANT
+  NORMAL
+  LOW
+}
+
+enum EmailDisposition {
+  IMPORTANT
+  USED
+  SPAM
+  LOW_VALUE
+  DUPLICATE
+}
+
+enum ScoreConfidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum NotificationChannel {
+  DM
+  CHANNEL
+  BOTH
+}
+
+enum FeedbackType {
+  CORRECT
+  FALSE_POSITIVE
+  FALSE_NEGATIVE
+  OVERRATED
+}
+
+enum RuleAction {
+  ALWAYS_NOTIFY
+  NEVER_NOTIFY
+  MARK_SPAM
+  BOOST
+}
+
+enum OtpPurpose {
+  CONNECT_GMAIL
+  DISCONNECT_ACCOUNT
+  SETTINGS_CHANGE
+}

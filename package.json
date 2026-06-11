@@ -1,0 +1,35 @@
+{
+  "name": "mailsync",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-powered Gmail importance notifier for Discord with a VPS-hosted MySQL backend.",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @mailsync/shared && npm run build --workspaces --if-present",
+    "dev": "concurrently -n api,dashboard,worker -c blue,magenta,green \"npm run dev -w @mailsync/api\" \"npm run dev -w @mailsync/dashboard\" \"npm run dev -w @mailsync/worker\"",
+    "dev:api": "npm run dev -w @mailsync/api",
+    "dev:dashboard": "npm run dev -w @mailsync/dashboard",
+    "dev:bot": "npm run dev -w @mailsync/bot",
+    "dev:worker": "npm run dev -w @mailsync/worker",
+    "start:prod": "concurrently -n api,bot,worker -c blue,green,magenta \"npm run start -w @mailsync/api\" \"npm run start -w @mailsync/bot\" \"npm run start -w @mailsync/worker\"",
+    "db:generate": "prisma generate --schema packages/database/prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema packages/database/prisma/schema.prisma",
+    "db:push": "prisma db push --schema packages/database/prisma/schema.prisma",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.11",
+    "concurrently": "^8.2.2",
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0"
+  }
+}

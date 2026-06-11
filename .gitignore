@@ -1,0 +1,16 @@
+node_modules
+dist
+.env
+.env.local
+.turbo
+coverage
+*.log
+packages/database/prisma/migrations/dev.db
+
+# Local planning/reference material that should not be published by default.
+dashboard.*.png
+dashboard.*.jpg
+dashboard.*.jpeg
+dashboard.*.webp
+prompts/
+*PRD*.md
