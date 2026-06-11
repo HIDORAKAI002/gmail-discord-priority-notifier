@@ -961,19 +961,65 @@ Gmail does not call your app directly for new email. Gmail publishes notificatio
 
 Without this setup, MailSync still works through polling.
 
-### Enable Gmail Push
+### Fast Cloud Shell Setup
 
-Set:
+Open Google Cloud Shell in the same Google Cloud project used for Gmail OAuth:
+
+```text
+https://console.cloud.google.com/?project=YOUR_GOOGLE_PROJECT_ID&cloudshell=true
+```
+
+Paste this block, replacing `YOUR_GOOGLE_PROJECT_ID` and `YOUR_DOMAIN`:
+
+```bash
+PROJECT_ID="YOUR_GOOGLE_PROJECT_ID"
+TOPIC_ID="mailsync-gmail"
+SUB_ID="mailsync-gmail-push"
+TOKEN="$(openssl rand -hex 32)"
+ENDPOINT="https://YOUR_DOMAIN/api/webhooks/gmail?token=${TOKEN}"
+
+gcloud config set project "$PROJECT_ID"
+gcloud services enable pubsub.googleapis.com gmail.googleapis.com
+
+gcloud pubsub topics create "$TOPIC_ID" || true
+
+gcloud pubsub topics add-iam-policy-binding "$TOPIC_ID" \
+  --member="serviceAccount:gmail-api-push@system.gserviceaccount.com" \
+  --role="roles/pubsub.publisher"
+
+gcloud pubsub subscriptions create "$SUB_ID" \
+  --topic="$TOPIC_ID" \
+  --push-endpoint="$ENDPOINT" || true
+
+echo ""
+echo "PUT THESE IN YOUR SERVER .env:"
+echo "GMAIL_PUSH_ENABLED=true"
+echo "GMAIL_PUBSUB_TOPIC=projects/${PROJECT_ID}/topics/${TOPIC_ID}"
+echo "GMAIL_PUBSUB_VERIFICATION_TOKEN=${TOKEN}"
+echo "GMAIL_PUSH_SYNC_INTERVAL_MS=2500"
+echo "POLLING_INTERVAL_MS=60000"
+```
+
+Copy the printed env values into your server `.env`.
+
+### Required Server Env
 
 ```env
 GMAIL_PUSH_ENABLED=true
-GMAIL_PUBSUB_TOPIC=projects/YOUR_GOOGLE_PROJECT_ID/topics/YOUR_TOPIC_NAME
+GMAIL_PUBSUB_TOPIC=projects/YOUR_GOOGLE_PROJECT_ID/topics/mailsync-gmail
 GMAIL_PUBSUB_VERIFICATION_TOKEN=replace_with_long_random_secret
 GMAIL_PUSH_SYNC_INTERVAL_MS=2500
 GMAIL_WATCH_RENEWAL_HOURS=24
+POLLING_INTERVAL_MS=60000
 ```
 
-### Create Pub/Sub Topic
+Keep polling enabled as a fallback. With push configured correctly, new mail should usually flow through the push path within seconds.
+
+### Manual Setup Reference
+
+If you prefer the Google Cloud Console UI, create the same resources manually.
+
+Create a Pub/Sub topic:
 
 Topic name example:
 
@@ -995,7 +1041,7 @@ Grant this Google-managed service account Pub/Sub Publisher on the topic:
 gmail-api-push@system.gserviceaccount.com
 ```
 
-### Create Push Subscription
+Create a push subscription attached to that topic.
 
 Push endpoint:
 
@@ -1004,6 +1050,24 @@ https://your-domain.example/api/webhooks/gmail?token=YOUR_GMAIL_PUBSUB_VERIFICAT
 ```
 
 The token in the URL must exactly match `GMAIL_PUBSUB_VERIFICATION_TOKEN`.
+
+### Restart And Verify
+
+Restart the server after changing `.env`.
+
+Expected worker log:
+
+```text
+Gmail push watch renewed for user@example.com
+```
+
+Expected log after a new inbox message:
+
+```text
+worker push sync: 1 account(s), 1 new email(s), 0 WhatsApp alert(s)
+```
+
+The dashboard account settings should show `Instant Gmail push active`. If it still shows fallback polling, check the env values, Pub/Sub subscription endpoint, and topic IAM permission.
 
 ### Watch Renewal
 
