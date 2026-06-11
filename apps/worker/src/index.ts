@@ -115,6 +115,13 @@ function scoreEmail(input: { subject: string; snippet: string; body: string; lab
     "contract",
     "invoice",
     "payment",
+    "credit",
+    "selection",
+    "selected",
+    "shortlisted",
+    "application",
+    "admission",
+    "ncc",
     "security",
     "production",
     "server",
@@ -148,7 +155,7 @@ function scoreEmail(input: { subject: string; snippet: string; body: string; lab
     "approve",
     "approval"
   ];
-  const otpTerms = ["otp", "one-time", "one time", "verification code", "security code", "login code", "2fa"];
+  const otpTerms = ["otp", "one-time", "one time", "verification code", "security code", "login code", "2fa", "passcode", "authentication code"];
   const lowValueTerms = [
     "winner",
     "prize",
@@ -251,7 +258,7 @@ async function gmailPost<T>(path: string, token: string, body: unknown): Promise
 
 async function listCandidateMessages(token: string) {
   const params = new URLSearchParams({
-    maxResults: "20",
+    maxResults: String(config.GMAIL_MAX_MESSAGES_PER_SYNC),
     includeSpamTrash: "false"
   });
   params.append("labelIds", "INBOX");
@@ -351,7 +358,7 @@ async function syncAccount(account: {
   const list = await listCandidateMessages(token);
   const messages = list.messages ?? [];
   let created = 0;
-  const baseline = account.lastSyncAt ?? new Date();
+  const baseline = account.lastSyncAt ? new Date(account.lastSyncAt.getTime() - config.GMAIL_SYNC_LOOKBACK_MS) : new Date();
 
   if (!account.lastSyncAt) {
     await prisma.emailAccount.update({
@@ -382,14 +389,14 @@ async function syncAccount(account: {
     const matchedRules = account.rules.filter((rule) => matchesRule(rule.pattern, { from, subject, snippet }));
     const muted = matchedRules.some((rule) => rule.action === "NEVER_NOTIFY" || rule.action === "MARK_SPAM");
     const boosted = matchedRules.some((rule) => rule.action === "ALWAYS_NOTIFY" || rule.action === "BOOST");
-    const finalScore = muted ? Math.min(score.ruleScore, 10) : boosted ? Math.max(score.ruleScore, 92) : score.ruleScore;
+    const finalScore = score.isOtp ? 100 : muted ? Math.min(score.ruleScore, 10) : boosted ? Math.max(score.ruleScore, 92) : score.ruleScore;
     const spamScore = muted ? 90 : score.spamScore;
-    const category = classifyLevel(
+    const category = score.isOtp ? "CRITICAL" : classifyLevel(
       finalScore,
       account.thresholds?.importantThreshold ?? config.DEFAULT_IMPORTANT_THRESHOLD,
       account.thresholds?.criticalThreshold ?? config.DEFAULT_CRITICAL_THRESHOLD
     );
-    const disposition = dispositionForEmail(category, spamScore);
+    const disposition = score.isOtp ? EmailDisposition.IMPORTANT : dispositionForEmail(category, spamScore);
 
     await prisma.emailLog.create({
       data: {

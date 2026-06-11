@@ -229,7 +229,7 @@ if (!config.DISCORD_BOT_TOKEN) {
         console.error(error);
       }
     }
-  }, 15000);
+  }, config.DISCORD_DELIVERY_INTERVAL_MS);
 
   await client.login(config.DISCORD_BOT_TOKEN);
 }
