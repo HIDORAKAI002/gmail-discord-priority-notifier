@@ -471,9 +471,21 @@ app.post("/api/webhooks/gmail", async (req, res, next) => {
     const token = String(req.query.token ?? req.header("x-mailsync-webhook-token") ?? "");
     if (!timingSafeEqualString(sha256(token), sha256(expectedToken))) return res.status(401).json({ error: "Invalid webhook token" });
     const dataValue = req.body?.message?.data;
-    if (typeof dataValue !== "string") return res.status(400).json({ error: "Missing Pub/Sub message data" });
-    const payload = decodePubSubData(dataValue);
-    if (!payload.emailAddress) return res.status(400).json({ error: "Missing Gmail emailAddress" });
+    if (typeof dataValue !== "string") {
+      console.warn("Gmail Pub/Sub webhook ignored: missing message.data");
+      return res.status(204).end();
+    }
+    let payload: { emailAddress?: string; historyId?: string };
+    try {
+      payload = decodePubSubData(dataValue);
+    } catch (error) {
+      console.warn(`Gmail Pub/Sub webhook ignored: invalid message.data (${error instanceof Error ? error.message : "unknown parse error"})`);
+      return res.status(204).end();
+    }
+    if (!payload.emailAddress) {
+      console.warn("Gmail Pub/Sub webhook ignored: missing emailAddress");
+      return res.status(204).end();
+    }
     const account = await prisma.emailAccount.findFirst({
       where: { emailAddress: payload.emailAddress, status: { in: ["ACTIVE", "ERROR"] } },
       select: { id: true }
@@ -490,7 +502,8 @@ app.post("/api/webhooks/gmail", async (req, res, next) => {
     }
     res.status(204).end();
   } catch (error) {
-    next(error);
+    console.error(`Gmail Pub/Sub webhook failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    res.status(204).end();
   }
 });
 
