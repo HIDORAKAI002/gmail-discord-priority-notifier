@@ -34,6 +34,11 @@ try {
   await addColumn("EmailLog", "bodyPreview", "TEXT NULL");
   await addColumn("EmailLog", "whatsappNotifiedAt", "DATETIME(3) NULL");
   await addColumn("EmailLog", "whatsappError", "TEXT NULL");
+} catch (error) {
+  console.error("Additive schema fallback failed.");
+  console.error(error instanceof Error ? error.message : "Unknown schema fallback error");
+  console.error("Check DATABASE_URL and MySQL reachability before restarting MailSync.");
+  process.exitCode = 1;
 } finally {
   await prisma.$disconnect();
 }
