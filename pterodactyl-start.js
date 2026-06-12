@@ -10,6 +10,7 @@ const requiredPaths = [
   "apps/bot/package.json",
   "apps/worker/package.json",
   "scripts/check-database.js",
+  "scripts/check-runtime-build.js",
   "scripts/ensure-additive-schema.js"
 ];
 
@@ -87,6 +88,7 @@ if (dbPush.status !== 0) {
   run("node", ["scripts/ensure-additive-schema.js"]);
 }
 run("npm", ["run", "build"]);
+run("node", ["scripts/check-runtime-build.js"]);
 
 const child = spawn("npm", ["run", "start:prod"], {
   stdio: "inherit",
