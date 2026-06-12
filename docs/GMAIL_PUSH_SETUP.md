@@ -2,7 +2,7 @@
 
 MailSync can process new inbox mail in two modes:
 
-- **Instant push mode:** Gmail publishes mailbox changes to Google Cloud Pub/Sub, and Pub/Sub calls `https://mambo.shammy.dev/api/webhooks/gmail`.
+- **Instant push mode:** Gmail publishes mailbox changes to Google Cloud Pub/Sub, and Pub/Sub calls `https://your-domain.example/api/webhooks/gmail`.
 - **Fallback polling mode:** the worker checks Gmail every `POLLING_INTERVAL_MS`.
 
 If `GMAIL_PUSH_ENABLED=false`, or if the topic/token are missing, MailSync is polling. No code change can make Gmail call the app until Pub/Sub is configured in Google Cloud.

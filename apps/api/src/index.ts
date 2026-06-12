@@ -225,7 +225,11 @@ function userOpenWaConfig(user: { whatsappAgentEnabled?: boolean; openWaBaseUrl?
 function decodePubSubData(value: string) {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-  return JSON.parse(Buffer.from(padded, "base64").toString("utf8")) as { emailAddress?: string; historyId?: string };
+  const payload = JSON.parse(Buffer.from(padded, "base64").toString("utf8")) as { emailAddress?: unknown; historyId?: unknown };
+  return {
+    emailAddress: typeof payload.emailAddress === "string" ? payload.emailAddress : undefined,
+    historyId: payload.historyId == null ? undefined : String(payload.historyId)
+  };
 }
 
 function gmailPushConfigured() {
